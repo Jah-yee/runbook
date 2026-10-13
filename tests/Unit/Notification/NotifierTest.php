@@ -33,7 +33,7 @@ class NotifierTest extends TestCase {
 	private RunAccessService $access;
 	/** @var list<int> */
 	private array $deletedRuns = [];
-	/** @var array<string, true> */
+	/** @var list<string> "runId:uid" pairs whose access was revoked */
 	private array $revoked = [];
 
 	protected function setUp(): void {
@@ -59,8 +59,6 @@ class NotifierTest extends TestCase {
 		$this->url->method('linkToRoute')->willReturn('/index.php/apps/runbook/');
 		$this->url->method('linkToRouteAbsolute')->willReturn('https://cloud.example.com/index.php/apps/runbook/');
 
-		$this->deletedRuns = [];
-		$this->revoked = [];
 		$this->runs = $this->createMock(RunMapper::class);
 		$this->runs->method('find')->willReturnCallback(function (int $id): Run {
 			if (in_array($id, $this->deletedRuns, true)) {
@@ -74,7 +72,7 @@ class NotifierTest extends TestCase {
 		});
 		$this->access = $this->createMock(RunAccessService::class);
 		$this->access->method('canView')->willReturnCallback(
-			fn (Run $run, string $uid): bool => !isset($this->revoked[$run->getId() . ':' . $uid]),
+			fn (Run $run, string $uid): bool => !in_array($run->getId() . ':' . $uid, $this->revoked, true),
 		);
 	}
 
@@ -210,7 +208,7 @@ class NotifierTest extends TestCase {
 	}
 
 	public function testNotificationIsWithdrawnWhenRecipientLostAccess(): void {
-		$this->revoked = ['7:bob' => true];
+		$this->revoked = ['7:bob'];
 
 		$this->expectException(AlreadyProcessedException::class);
 		$this->prepare('runbook', NotificationService::SUBJECT_RUN_ASSIGNED, [
