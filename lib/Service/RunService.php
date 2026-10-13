@@ -85,7 +85,7 @@ class RunService {
 		foreach ($this->runs->findAccessible($uid, $runIds) as $run) {
 			$result[] = [
 				'run' => $run,
-				'progress' => $this->calculateProgress($run, $this->runSteps->findByRun($run->getId())),
+				'progress' => $this->currentProgress($run),
 			];
 		}
 
@@ -564,7 +564,7 @@ class RunService {
 			throw new ConflictException('run_not_active');
 		}
 
-		$progress = $this->calculateProgress($run, $this->runSteps->findByRun($run->getId()));
+		$progress = $this->currentProgress($run);
 		if (!$progress['canComplete']) {
 			throw new ConflictException('required_steps_unresolved');
 		}
@@ -684,6 +684,21 @@ class RunService {
 		if ($cleanup !== null) {
 			$this->filesCleanup->attempt($cleanup);
 		}
+	}
+
+	/**
+	 * Progress of a run from its current steps, with the flow engine applied
+	 * so that steps of inapplicable sections never block completion. This is
+	 * the same calculation the run detail uses.
+	 *
+	 * @return array{total: int, completed: int, skipped: int, pending: int, percentage: int, canComplete: bool}
+	 */
+	private function currentProgress(Run $run): array {
+		$sections = $this->runSections->findByRun($run->getId());
+		$steps = $this->runSteps->findByRun($run->getId());
+		$flow = $this->flow->evaluate($sections, $steps);
+
+		return $this->calculateProgress($run, $steps, $flow['inapplicableStepIds']);
 	}
 
 	/**
