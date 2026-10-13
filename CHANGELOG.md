@@ -5,7 +5,7 @@ All notable changes to Runbook are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] - 2026-10-13
 
 ### Fixed
 
@@ -39,7 +39,17 @@ and the project follows [Semantic Versioning](https://semver.org/).
   supports Nextcloud plural entries.
 - Background jobs are declared in `appinfo/info.xml` instead of being
   re-registered on every request. Existing installations keep their already
-  registered jobs; the next version bump re-registers them on upgrade.
+  registered jobs; upgrading to this version registers them from
+  `appinfo/info.xml`.
+- `appinfo/signature.json` is no longer tracked in the repository. Release
+  packages are signed at release time from the exact packaged files, so a
+  stale signature can no longer ship with a development build.
+
+### Compatibility
+
+- Nextcloud 33–35.
+- PHP 8.2–8.5.
+- No database migration.
 
 ## [1.0.0] - 2026-09-29
 
