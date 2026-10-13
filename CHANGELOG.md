@@ -20,6 +20,8 @@ and the project follows [Semantic Versioning](https://semver.org/).
   follows the instance's sharing and user enumeration restrictions. Before,
   any user could list every account and group. Administrators still search
   all accounts.
+- Notifications are withdrawn when their run is deleted or the recipient can
+  no longer view it, so run titles no longer stay visible after access ends.
 
 ### Changed
 

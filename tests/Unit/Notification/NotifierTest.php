@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace OCA\Runbook\Tests\Unit\Notification;
 
+use OCA\Runbook\Db\Run;
+use OCA\Runbook\Db\RunMapper;
 use OCA\Runbook\Notification\Notifier;
 use OCA\Runbook\Service\NotificationService;
+use OCA\Runbook\Service\RunAccessService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
+use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\INotification;
 use OCP\Notification\UnknownNotificationException;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -22,6 +27,14 @@ class NotifierTest extends TestCase {
 	private IUserManager $userManager;
 	/** @var IURLGenerator&MockObject */
 	private IURLGenerator $url;
+	/** @var RunMapper&MockObject */
+	private RunMapper $runs;
+	/** @var RunAccessService&MockObject */
+	private RunAccessService $access;
+	/** @var list<int> */
+	private array $deletedRuns = [];
+	/** @var array<string, true> */
+	private array $revoked = [];
 
 	protected function setUp(): void {
 		/** @var IL10N&MockObject $l10n */
@@ -45,10 +58,28 @@ class NotifierTest extends TestCase {
 		$this->url = $this->createMock(IURLGenerator::class);
 		$this->url->method('linkToRoute')->willReturn('/index.php/apps/runbook/');
 		$this->url->method('linkToRouteAbsolute')->willReturn('https://cloud.example.com/index.php/apps/runbook/');
+
+		$this->deletedRuns = [];
+		$this->revoked = [];
+		$this->runs = $this->createMock(RunMapper::class);
+		$this->runs->method('find')->willReturnCallback(function (int $id): Run {
+			if (in_array($id, $this->deletedRuns, true)) {
+				throw new DoesNotExistException('run not found');
+			}
+			$run = new Run();
+			$run->setId($id);
+			$run->setOwner('alice');
+
+			return $run;
+		});
+		$this->access = $this->createMock(RunAccessService::class);
+		$this->access->method('canView')->willReturnCallback(
+			fn (Run $run, string $uid): bool => !isset($this->revoked[$run->getId() . ':' . $uid]),
+		);
 	}
 
 	private function notifier(): Notifier {
-		return new Notifier($this->l10nFactory, $this->url, $this->userManager);
+		return new Notifier($this->l10nFactory, $this->url, $this->userManager, $this->runs, $this->access);
 	}
 
 	/**
@@ -61,6 +92,7 @@ class NotifierTest extends TestCase {
 		/** @var INotification&MockObject $notification */
 		$notification = $this->createMock(INotification::class);
 		$notification->method('getApp')->willReturn($app);
+		$notification->method('getUser')->willReturn('bob');
 		$notification->method('getSubject')->willReturn($subject);
 		$notification->method('getSubjectParameters')->willReturn($params);
 		$notification->method('setParsedSubject')->willReturnCallback(function (string $value) use (&$captured, $notification): INotification {
@@ -162,5 +194,37 @@ class NotifierTest extends TestCase {
 	public function testUnknownSubjectIsRejected(): void {
 		$this->expectException(UnknownNotificationException::class);
 		$this->prepare('runbook', 'totally_unknown', []);
+	}
+
+	public function testNotificationForDeletedRunIsWithdrawn(): void {
+		$this->deletedRuns = [5];
+
+		$this->expectException(AlreadyProcessedException::class);
+		$this->prepare('runbook', NotificationService::SUBJECT_STEP_ASSIGNED, [
+			'runId' => 5,
+			'stepId' => 9,
+			'runTitle' => 'Release',
+			'stepTitle' => 'Deploy',
+			'actor' => 'alice',
+		]);
+	}
+
+	public function testNotificationIsWithdrawnWhenRecipientLostAccess(): void {
+		$this->revoked = ['7:bob' => true];
+
+		$this->expectException(AlreadyProcessedException::class);
+		$this->prepare('runbook', NotificationService::SUBJECT_RUN_ASSIGNED, [
+			'runId' => 7,
+			'runTitle' => 'Maintenance',
+			'actor' => 'alice',
+		]);
+	}
+
+	public function testNotificationWithoutRunIsWithdrawn(): void {
+		$this->expectException(AlreadyProcessedException::class);
+		$this->prepare('runbook', NotificationService::SUBJECT_RUN_ASSIGNED, [
+			'runTitle' => 'Maintenance',
+			'actor' => 'alice',
+		]);
 	}
 }
