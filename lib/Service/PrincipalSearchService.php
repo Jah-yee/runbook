@@ -17,7 +17,9 @@ use OCP\Share\IShare;
  * Regular users search through the Nextcloud sharee search, which applies the
  * instance's sharing and enumeration policy (enumeration limits, "only share
  * with group members", excluded groups, phone-book matching, group sharing).
- * Runbook must never reveal more accounts than the Files share dialog does.
+ * The search must not reveal more accounts than the Files share dialog does.
+ * Note: the write paths (ACL entries, assignments) still accept any existing
+ * principal; restricting them is tracked separately.
  *
  * Administrators search the user and group backends directly: the
  * administration settings need every group, and administrators can already
@@ -45,7 +47,10 @@ class PrincipalSearchService {
 
 		$limit = max(1, min($limit, self::MAX_RESULTS));
 		$user = $this->userSession->getUser();
-		if ($user !== null && $this->groupManager->isAdmin($user->getUID())) {
+		if ($user === null) {
+			return [];
+		}
+		if ($this->groupManager->isAdmin($user->getUID())) {
 			return $this->searchUnrestricted($search, $limit);
 		}
 
@@ -61,7 +66,7 @@ class PrincipalSearchService {
 		$exact = $this->arrayValue($result, 'exact');
 
 		$principals = [];
-		if ($user !== null && $this->matches($search, $user->getUID(), $user->getDisplayName())) {
+		if ($this->matches($search, $user->getUID(), $user->getDisplayName())) {
 			// The sharee search always drops the current user.
 			$this->add($principals, PrincipalType::User, $user->getUID(), $user->getDisplayName());
 		}

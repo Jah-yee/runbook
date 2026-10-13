@@ -9,7 +9,7 @@
 
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { isInPlaceRefresh, stepStateKey } from '../../src/utils/runRefresh.ts'
+import { isInPlaceRefresh, isRunGone, stepStateKey } from '../../src/utils/runRefresh.ts'
 
 function step(overrides = {}) {
 	return {
@@ -51,4 +51,12 @@ test('the state key does not depend on property order', () => {
 	const a = { id: 1, status: 'PENDING', response: null }
 	const b = { response: null, status: 'PENDING', id: 1 }
 	assert.equal(stepStateKey(a), stepStateKey(b))
+})
+
+test('only a 404 means the run is gone', () => {
+	assert.equal(isRunGone({ response: { status: 404 } }), true)
+	assert.equal(isRunGone({ response: { status: 409 } }), false)
+	assert.equal(isRunGone({ response: { status: 403 } }), false)
+	assert.equal(isRunGone(new Error('network')), false)
+	assert.equal(isRunGone(null), false)
 })

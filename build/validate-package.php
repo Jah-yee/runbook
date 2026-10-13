@@ -162,12 +162,12 @@ if (is_file($infoXmlPath)) {
 $enPath = $root . '/l10n/en.json';
 if (is_file($enPath)) {
 	try {
-		/** @var array{translations: array<string, string>} $en */
+		/** @var array{translations: array<string, string|list<string>>} $en */
 		$en = json_decode((string)file_get_contents($enPath), true, 512, JSON_THROW_ON_ERROR);
 		foreach (glob($root . '/l10n/*.json') ?: [] as $file) {
 			$name = basename($file);
 			try {
-				/** @var array{translations: array<string, string>} $translated */
+				/** @var array{translations: array<string, string|list<string>>} $translated */
 				$translated = json_decode((string)file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
 			} catch (\JsonException $exception) {
 				$errors[] = $name . ' is not valid JSON: ' . $exception->getMessage();
@@ -250,10 +250,12 @@ function findFiles(string $root): array {
 }
 
 /**
+ * @param string|list<string> $value A message or the plural forms of one.
  * @return list<string>
  */
-function placeholders(string $value): array {
-	preg_match_all('/\{[a-zA-Z0-9_]+\}/', $value, $matches);
+function placeholders(string|array $value): array {
+	$text = is_array($value) ? implode("\n", $value) : $value;
+	preg_match_all('/\{[a-zA-Z0-9_]+\}|%n/', $text, $matches);
 	$placeholders = $matches[0];
 	sort($placeholders);
 

@@ -26,7 +26,9 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - User and group search now goes through the Nextcloud sharee search and
   follows the instance's sharing and user enumeration restrictions. Before,
   any user could list every account and group. Administrators still search
-  all accounts.
+  all accounts. When group sharing is disabled, non-administrators no longer
+  find groups. Saving ACL entries and assignments still accepts any existing
+  account; that is not restricted yet.
 - Notifications are withdrawn when their run is deleted or the recipient can
   no longer view it, so run titles no longer stay visible after access ends.
 - Duplicating a template now respects the template creation policy.

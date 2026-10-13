@@ -155,6 +155,16 @@ class PrincipalSearchServiceTest extends TestCase {
 		], $this->serviceFor('root')->search('en', 25));
 	}
 
+	public function testNoSessionReturnsNothing(): void {
+		$this->search->expects(self::never())->method('search');
+		/** @var IUserSession&MockObject $session */
+		$session = $this->createMock(IUserSession::class);
+		$session->method('getUser')->willReturn(null);
+
+		$service = new PrincipalSearchService($this->search, $this->userManager, $this->groupManager, $session);
+		self::assertSame([], $service->search('bob', 25));
+	}
+
 	public function testEmptySearchReturnsNothing(): void {
 		$this->search->expects(self::never())->method('search');
 

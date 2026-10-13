@@ -31,6 +31,17 @@ export function isInPlaceRefresh(request: RefreshRequest): boolean {
 }
 
 /**
+ * Whether a failed request means the run is gone for this user (deleted, or
+ * access revoked; the API answers 404 for both).
+ *
+ * @param error Error thrown by the API client.
+ */
+export function isRunGone(error: unknown): boolean {
+	const status = (error as { response?: { status?: unknown } } | null)?.response?.status
+	return status === 404
+}
+
+/**
  * Stable serialisation of a value with sorted object keys.
  *
  * @param value Any JSON-compatible value.

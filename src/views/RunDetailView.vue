@@ -43,7 +43,7 @@ import {
 	requestFocus,
 	selectSection as selectNavSection,
 } from '../utils/runNavigation.ts'
-import { isInPlaceRefresh } from '../utils/runRefresh.ts'
+import { isInPlaceRefresh, isRunGone } from '../utils/runRefresh.ts'
 
 const props = defineProps<{
 	runId: number
@@ -305,7 +305,17 @@ async function load(options: { refresh?: boolean } = {}): Promise<void> {
 		if (isStaleLoad(sequence, loadSequence)) {
 			return
 		}
-		error.value = apiErrorMessage(caught)
+		if (inPlace && isRunGone(caught)) {
+			// The run was deleted or access was revoked meanwhile: show the
+			// empty state instead of a stale, still actionable page.
+			detail.value = null
+			loadedRunId.value = null
+			attachments.value = []
+		}
+		// A refresh after a failed action keeps the action's error.
+		if (!inPlace || error.value === null) {
+			error.value = apiErrorMessage(caught)
+		}
 	} finally {
 		if (!isStaleLoad(sequence, loadSequence)) {
 			loading.value = false
