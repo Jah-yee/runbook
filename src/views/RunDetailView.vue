@@ -8,7 +8,7 @@ import type { AppFeatures } from '../models/adminSettings.ts'
 import type { RunAttachment, RunDetail, RunSectionWithSteps, StepAssignmentPayload, StepResponse } from '../models/run.ts'
 import type { RunNavigationState } from '../utils/runNavigation.ts'
 
-import { translate as t } from '@nextcloud/l10n'
+import { translatePlural as n, translate as t } from '@nextcloud/l10n'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcEmptyContent from '@nextcloud/vue/components/NcEmptyContent'
@@ -43,6 +43,7 @@ import {
 	requestFocus,
 	selectSection as selectNavSection,
 } from '../utils/runNavigation.ts'
+import { isInPlaceRefresh } from '../utils/runRefresh.ts'
 
 const props = defineProps<{
 	runId: number
@@ -102,6 +103,18 @@ const commentsEnabled = computed<boolean>(() => features.value?.commentsEnabled 
 const stepReopenEnabled = computed<boolean>(() => features.value?.stepReopenEnabled ?? true)
 const runReopenEnabled = computed<boolean>(() => features.value?.runReopenEnabled ?? true)
 const requireSkipReason = computed<boolean>(() => features.value?.requireSkipReason ?? true)
+const runRoleLabel = computed<string>(() => {
+	switch (detail.value?.permissions.role) {
+		case 'OWNER':
+			return t('runbook', 'Owner')
+		case 'PARTICIPANT':
+			return t('runbook', 'Participant')
+		case 'VIEWER':
+			return t('runbook', 'Viewer')
+		default:
+			return detail.value?.permissions.role ?? ''
+	}
+})
 
 /**
  * Per-section collapse override. Only sections that are fully resolved
@@ -252,19 +265,34 @@ function resetViewState(): void {
  *
  * Each load gets a monotonic sequence so a slower earlier request (for example
  * run A) can never overwrite the state of a newer one (run B).
+ *
+ * A refresh of the run already shown keeps the page rendered: the step cards
+ * stay mounted, so unsaved input, scroll position and focus are preserved,
+ * and an existing error message stays visible.
+ *
+ * @param options Load options.
+ * @param options.refresh Refresh the rendered run in place.
  */
-async function load(): Promise<void> {
+async function load(options: { refresh?: boolean } = {}): Promise<void> {
 	const runId = props.runId
 	const { sequence, latest } = beginLoad(loadSequence)
 	loadSequence = latest
+	const inPlace = isInPlaceRefresh({
+		requested: options.refresh === true,
+		hasDetail: detail.value !== null,
+		loadedRunId: loadedRunId.value,
+		runId,
+	})
 
-	loading.value = true
-	error.value = null
+	if (!inPlace) {
+		loading.value = true
+		error.value = null
+	}
 	try {
 		const [run, files, flags] = await Promise.all([
 			api.getRun(runId),
 			api.listAttachments(runId),
-			getFeatures(),
+			inPlace && features.value !== null ? Promise.resolve(features.value) : getFeatures(),
 		])
 		if (isStaleLoad(sequence, loadSequence)) {
 			return
@@ -370,7 +398,11 @@ async function applyStepFocus(): Promise<void> {
 }
 
 /**
- * Run a mutation and reload the detail afterwards.
+ * Run a mutation and refresh the detail in place afterwards.
+ *
+ * The detail is refreshed after a failure too: a conflict usually means the
+ * run changed (for example another participant completed the step), so the
+ * page shows the current state next to the error.
  *
  * @param action Async action performing the API call.
  */
@@ -379,9 +411,11 @@ async function mutate(action: () => Promise<unknown>): Promise<void> {
 	error.value = null
 	try {
 		await action()
-		await load()
 	} catch (caught) {
 		error.value = apiErrorMessage(caught)
+	}
+	try {
+		await load({ refresh: true })
 	} finally {
 		busy.value = false
 	}
@@ -559,7 +593,7 @@ function formatDate(timestamp: number): string {
 					<RunStatusBadge :status="detail.run.status" />
 					<span>{{ t('runbook', 'Template v{version}', { version: detail.run.templateVersion }) }}</span>
 					<span v-if="detail.permissions.role !== null && detail.permissions.role !== 'OWNER'">
-						{{ t('runbook', 'Your role: {role}', { role: detail.permissions.role }) }}
+						{{ t('runbook', 'Your role: {role}', { role: runRoleLabel }) }}
 					</span>
 					<span v-if="detail.run.dueAt !== null">
 						{{ t('runbook', 'Due {date}', { date: formatDate(detail.run.dueAt) }) }}
@@ -625,10 +659,10 @@ function formatDate(timestamp: number): string {
 			</div>
 			<div v-else-if="optionsHint" class="runbook-exec__next">
 				<span v-if="optionsHint.startable > 0">
-					{{ t('runbook', '{count} steps can be started', { count: optionsHint.startable }) }}
+					{{ n('runbook', '%n step can be started', '%n steps can be started', optionsHint.startable) }}
 				</span>
 				<span v-if="optionsHint.continuable > 0">
-					{{ t('runbook', '{count} steps are in progress', { count: optionsHint.continuable }) }}
+					{{ n('runbook', '%n step is in progress', '%n steps are in progress', optionsHint.continuable) }}
 				</span>
 			</div>
 			<div v-else-if="showReadyHint" class="runbook-exec__next">

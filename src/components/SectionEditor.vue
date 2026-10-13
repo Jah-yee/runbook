@@ -7,7 +7,7 @@
 import type { ConditionOperator, SectionPayload, StepCondition, StepPayload, TemplateSection, TemplateStep } from '../models/template.ts'
 import type { ConditionDraftRow, ConditionStepOption, SectionDraft } from '../utils/templateAuthoring.ts'
 
-import { translate as t } from '@nextcloud/l10n'
+import { translatePlural as n, translate as t } from '@nextcloud/l10n'
 import { computed, ref, watch } from 'vue'
 import NcButton from '@nextcloud/vue/components/NcButton'
 import NcNoteCard from '@nextcloud/vue/components/NcNoteCard'
@@ -255,7 +255,7 @@ function submit(): void {
 					{{ section.title || t('runbook', 'Untitled section') }}
 				</h3>
 				<p class="runbook-section-editor__meta">
-					{{ steps.length > 0 ? t('runbook', '{count} steps', { count: steps.length }) : t('runbook', 'No steps') }}
+					{{ steps.length > 0 ? n('runbook', '%n step', '%n steps', steps.length) : t('runbook', 'No steps') }}
 				</p>
 				<p v-if="section.description" class="runbook-section-editor__preview">
 					{{ descriptionPreview(section.description) }}

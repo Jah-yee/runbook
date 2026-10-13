@@ -12,7 +12,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { readFileSync, readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -48,9 +48,15 @@ function sourceFiles() {
  */
 function staticKeys(text) {
 	const keys = new Set()
+	const unescape = (value) => value.replace(/\\'/g, "'")
 	const pattern = /\bt\(\s*'runbook'\s*,\s*'((?:[^'\\]|\\.)*)'/g
 	for (const match of text.matchAll(pattern)) {
-		keys.add(match[1].replace(/\\'/g, "'"))
+		keys.add(unescape(match[1]))
+	}
+	// n('runbook', singular, plural, …) uses the gettext plural key.
+	const plural = /\bn\(\s*'runbook'\s*,\s*'((?:[^'\\]|\\.)*)'\s*,\s*'((?:[^'\\]|\\.)*)'/g
+	for (const match of text.matchAll(plural)) {
+		keys.add(`_${unescape(match[1])}_::_${unescape(match[2])}_`)
 	}
 
 	return keys
@@ -70,8 +76,13 @@ test('every static t() key used in the UI exists in all catalogs', () => {
 				missing.push(`${file}: ${key}`)
 				continue
 			}
-			assert.equal(br[key], pt[key], `pt_BR must mirror pt_PT for: ${key}`)
+			assert.deepEqual(br[key], pt[key], `pt_BR must mirror pt_PT for: ${key}`)
 			assert.notEqual(br[key], '', `empty translation for: ${key}`)
+			if (key.startsWith('_') && key.includes('_::_')) {
+				for (const catalog of [en, pt, br]) {
+					assert.ok(Array.isArray(catalog[key]) && catalog[key].length >= 2, `plural forms expected for: ${key}`)
+				}
+			}
 		}
 	}
 
@@ -86,12 +97,27 @@ test('catalogs contain no literal translation keys or HTML entities', () => {
 
 	for (const [locale, catalog] of Object.entries({ en, pt, br: translations('pt_BR.json') })) {
 		assert.deepEqual(Object.keys(catalog), Object.keys(en), `${locale} key order must match en`)
-		for (const [key, value] of Object.entries(catalog)) {
-			for (const entity of entities) {
-				assert.ok(!value.includes(entity), `${locale} value for "${key}" contains ${entity}`)
+		for (const [key, raw] of Object.entries(catalog)) {
+			const forms = Array.isArray(raw) ? raw : [raw]
+			for (const value of forms) {
+				for (const entity of entities) {
+					assert.ok(!value.includes(entity), `${locale} value for "${key}" contains ${entity}`)
+				}
+				assert.ok(value.trim() !== '', `${locale} value for "${key}" must not be empty`)
 			}
-			assert.ok(value.trim() !== '', `${locale} value for "${key}" must not be empty`)
 		}
 		assert.ok(!Object.keys(catalog).some((key) => key.startsWith('runbook.')), `${locale} must not contain scoped keys`)
 	}
+})
+
+test('plural messages render the right form in Portuguese', async () => {
+	const { translatePlural } = await import('@nextcloud/l10n')
+	globalThis._oc_l10n_registry_translations ??= {}
+	globalThis._oc_l10n_registry_plural_functions ??= {}
+	globalThis._oc_l10n_registry_translations.runbook = translations('pt_PT.json')
+	globalThis._oc_l10n_registry_plural_functions.runbook = (count) => (count === 1 ? 0 : 1)
+
+	assert.equal(translatePlural('runbook', '%n step', '%n steps', 1), '1 passo')
+	assert.equal(translatePlural('runbook', '%n step', '%n steps', 3), '3 passos')
+	assert.equal(translatePlural('runbook', '%n step is in progress', '%n steps are in progress', 1), '1 passo em curso')
 })

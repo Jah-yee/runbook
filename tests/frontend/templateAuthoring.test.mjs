@@ -189,7 +189,7 @@ test('rule summary presents dependencies and AND conditions without implying OR'
 })
 
 test('zero-step and selection wording is present in the catalogs', () => {
-	for (const key of ['No steps', '{count} steps', 'Editing', 'Select a section to edit', 'Discard unsaved changes', 'You have unsaved changes. Discard them?']) {
+	for (const key of ['No steps', '_%n step_::_%n steps_', 'Editing', 'Select a section to edit', 'Discard unsaved changes', 'You have unsaved changes. Discard them?']) {
 		assert.ok(catalogs.en[key], `en missing ${key}`)
 		assert.ok(catalogs.pt_PT[key], `pt_PT missing ${key}`)
 	}

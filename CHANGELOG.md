@@ -15,6 +15,11 @@ and the project follows [Semantic Versioning](https://semver.org/).
   (element order); CI validates it against the schema.
 - Duplicating a template now copies the section dependencies and conditions,
   remapped to the copied sections and steps.
+- Actions on a run refresh the page in place instead of replacing it with a
+  loading spinner, so unsaved input in other steps, scroll position and focus
+  are kept. After a failed action the page shows the current run state.
+- Step counts use proper plural forms ("1 step", "3 steps").
+- The run role is shown translated instead of the raw identifier.
 
 ### Security
 
@@ -28,6 +33,8 @@ and the project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- The localization pipeline (`build/l10n.php`, `build/validate-json.php`)
+  supports Nextcloud plural entries.
 - Background jobs are declared in `appinfo/info.xml` instead of being
   re-registered on every request. Existing installations keep their already
   registered jobs; the next version bump re-registers them on upgrade.

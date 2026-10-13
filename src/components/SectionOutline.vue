@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import type { SectionOutlineItem } from '../utils/templateAuthoring.ts'
 
-import { translate as t } from '@nextcloud/l10n'
+import { translatePlural as n, translate as t } from '@nextcloud/l10n'
 import { nextTick, ref, watch } from 'vue'
 
 const props = defineProps<{
@@ -50,7 +50,7 @@ watch(() => props.selectedId, () => {
  * @param item Outline item.
  */
 function stepText(item: SectionOutlineItem): string {
-	return item.hasSteps ? t('runbook', '{count} steps', { count: item.stepCount }) : t('runbook', 'No steps')
+	return item.hasSteps ? n('runbook', '%n step', '%n steps', item.stepCount) : t('runbook', 'No steps')
 }
 
 /**
