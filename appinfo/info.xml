@@ -47,24 +47,29 @@ Runbook is designed to be useful for IT, operations, HR, finance, quality, secur
     <category>tools</category>
     <bugs>https://github.com/More-IT/runbook/issues</bugs>
     <dependencies>
-        <nextcloud min-version="33" max-version="35"/>
         <php min-version="8.2" max-version="8.5"/>
         <database>mysql</database>
         <database>pgsql</database>
         <database>sqlite</database>
+        <nextcloud min-version="33" max-version="35"/>
     </dependencies>
+    <background-jobs>
+        <job>OCA\Runbook\BackgroundJob\DueStepNotificationJob</job>
+        <job>OCA\Runbook\BackgroundJob\FilesCleanupRetryJob</job>
+        <job>OCA\Runbook\BackgroundJob\LegacyMigrationJob</job>
+    </background-jobs>
+    <settings>
+        <admin>OCA\Runbook\Settings\Admin</admin>
+        <admin-section>OCA\Runbook\Settings\Section</admin-section>
+    </settings>
     <navigations>
         <navigation>
             <id>runbook</id>
             <name>Runbook</name>
             <route>runbook.page.index</route>
             <icon>app.svg</icon>
-            <type>link</type>
             <order>100</order>
+            <type>link</type>
         </navigation>
     </navigations>
-    <settings>
-        <admin>OCA\Runbook\Settings\Admin</admin>
-        <admin-section>OCA\Runbook\Settings\Section</admin-section>
-    </settings>
 </info>

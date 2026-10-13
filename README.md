@@ -1298,11 +1298,11 @@ Translation workflow:
 - `lib/Db/*` — entities and mappers.
 - `lib/Middleware/ExceptionMiddleware.php` — maps domain exceptions to JSON.
 
-Notifications, the Dashboard widget, the Unified Search provider and the
-background job are registered through the public Nextcloud bootstrap
-registration API in `Application::register()` / `Application::boot()`. The
-administration settings are registered through `appinfo/info.xml` with the
-public Nextcloud Settings API.
+Notifications, the Dashboard widget and the Unified Search provider are
+registered through the public Nextcloud bootstrap registration API in
+`Application::register()`. The background jobs and the administration settings
+are declared in `appinfo/info.xml`; Nextcloud registers the jobs on install and
+upgrade.
 
 Milestone 7 does not add a database migration; all settings are stored through
 the typed Nextcloud app configuration API.

@@ -101,6 +101,11 @@ jobs:
       - name: Validate XML metadata
         run: composer validate:xml
 
+      - name: Validate info.xml against the App Store schema
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/info.xsd" https://apps.nextcloud.com/schema/apps/info.xsd
+          php -r '$d = new DOMDocument(); $d->load("appinfo/info.xml"); exit($d->schemaValidate($argv[1]) ? 0 : 1);' "$RUNNER_TEMP/info.xsd"
+
       - name: Validate JSON and translations
         run: composer validate:json
 

@@ -5,6 +5,21 @@ All notable changes to Runbook are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Completing a run and the run list now apply the section flow, so required
+  steps in a section whose condition is false no longer block completion.
+- `appinfo/info.xml` now validates against the official App Store schema
+  (element order); CI validates it against the schema.
+
+### Changed
+
+- Background jobs are declared in `appinfo/info.xml` instead of being
+  re-registered on every request. Existing installations keep their already
+  registered jobs; the next version bump re-registers them on upgrade.
+
 ## [1.0.0] - 2026-09-29
 
 First public release of Runbook by More-IT.
