@@ -13,6 +13,8 @@ and the project follows [Semantic Versioning](https://semver.org/).
   steps in a section whose condition is false no longer block completion.
 - `appinfo/info.xml` now validates against the official App Store schema
   (element order); CI validates it against the schema.
+- Duplicating a template now copies the section dependencies and conditions,
+  remapped to the copied sections and steps.
 
 ### Security
 
@@ -22,6 +24,7 @@ and the project follows [Semantic Versioning](https://semver.org/).
   all accounts.
 - Notifications are withdrawn when their run is deleted or the recipient can
   no longer view it, so run titles no longer stay visible after access ends.
+- Duplicating a template now respects the template creation policy.
 
 ### Changed
 
