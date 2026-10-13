@@ -48,7 +48,8 @@ Milestone 2 — Access control:
 - Four ACL roles: `VIEWER`, `EXECUTOR`, `EDITOR`, `OWNER`.
 - Effective permission resolution with strongest-role wins.
 - ACL editor in the template editor (owner only).
-- Principal search for users and groups.
+- Principal search for users and groups, following the instance's sharing and
+  user enumeration settings (administrators search all accounts).
 - ACL-controlled visibility for the template list and details.
 
 Milestone 3 — Runs and execution:

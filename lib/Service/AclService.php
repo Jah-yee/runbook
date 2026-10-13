@@ -25,7 +25,6 @@ use OCP\IUserSession;
  * transaction so a failed write never leaves a partial ACL behind.
  */
 class AclService {
-	private const MAX_PRINCIPAL_RESULTS = 50;
 	private const MAX_PRINCIPAL_ID_LENGTH = 255;
 
 	public function __construct(
@@ -91,39 +90,6 @@ class AclService {
 			'owner' => $owner,
 			'entries' => $this->aclMapper->findByTemplate($templateId),
 		];
-	}
-
-	/**
-	 * Search Nextcloud users and groups for the ACL editor.
-	 *
-	 * @return list<array{principalType: string, principalId: string, displayName: string}>
-	 */
-	public function searchPrincipals(string $search, int $limit): array {
-		$search = trim($search);
-		if ($search === '') {
-			return [];
-		}
-
-		$limit = max(1, min($limit, self::MAX_PRINCIPAL_RESULTS));
-
-		$principals = [];
-		foreach ($this->userManager->searchDisplayName($search, $limit) as $user) {
-			$principals[] = [
-				'principalType' => PrincipalType::User->value,
-				'principalId' => $user->getUID(),
-				'displayName' => $user->getDisplayName(),
-			];
-		}
-
-		foreach ($this->groupManager->search($search, $limit) as $group) {
-			$principals[] = [
-				'principalType' => PrincipalType::Group->value,
-				'principalId' => $group->getGID(),
-				'displayName' => $group->getDisplayName(),
-			];
-		}
-
-		return $principals;
 	}
 
 	private function requireManageAcl(Template $template): void {

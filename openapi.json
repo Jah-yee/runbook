@@ -2585,6 +2585,7 @@
             "get": {
                 "operationId": "principal-index",
                 "summary": "Search users and groups available to the ACL editor.",
+                "description": "Results follow the instance's sharing and user enumeration settings.",
                 "tags": [
                     "principal"
                 ],

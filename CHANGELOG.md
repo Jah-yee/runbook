@@ -14,6 +14,13 @@ and the project follows [Semantic Versioning](https://semver.org/).
 - `appinfo/info.xml` now validates against the official App Store schema
   (element order); CI validates it against the schema.
 
+### Security
+
+- User and group search now goes through the Nextcloud sharee search and
+  follows the instance's sharing and user enumeration restrictions. Before,
+  any user could list every account and group. Administrators still search
+  all accounts.
+
 ### Changed
 
 - Background jobs are declared in `appinfo/info.xml` instead of being
