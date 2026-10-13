@@ -5,23 +5,23 @@ declare(strict_types=1);
 namespace OCA\Runbook\Tests\Unit\Controller;
 
 use OCA\Runbook\Controller\PrincipalController;
-use OCA\Runbook\Service\AclService;
+use OCA\Runbook\Service\PrincipalSearchService;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
 class PrincipalControllerTest extends TestCase {
-	/** @var AclService&MockObject */
-	private AclService $aclService;
+	/** @var PrincipalSearchService&MockObject */
+	private PrincipalSearchService $principalSearch;
 
 	protected function setUp(): void {
-		$this->aclService = $this->createMock(AclService::class);
+		$this->principalSearch = $this->createMock(PrincipalSearchService::class);
 	}
 
 	public function testIndexReturnsBoundedPrincipals(): void {
-		$this->aclService->expects(self::once())
-			->method('searchPrincipals')
+		$this->principalSearch->expects(self::once())
+			->method('search')
 			->with('bob', 25)
 			->willReturn([
 				['principalType' => 'USER', 'principalId' => 'bob', 'displayName' => 'Bob'],
@@ -33,7 +33,7 @@ class PrincipalControllerTest extends TestCase {
 			static fn (string $key, mixed $default = null): mixed => $key === 'search' ? 'bob' : $default,
 		);
 
-		$response = (new PrincipalController('runbook', $request, $this->aclService))->index();
+		$response = (new PrincipalController('runbook', $request, $this->principalSearch))->index();
 
 		self::assertInstanceOf(JSONResponse::class, $response);
 		self::assertSame([

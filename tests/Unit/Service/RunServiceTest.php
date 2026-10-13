@@ -258,6 +258,49 @@ class RunServiceTest extends RunTestBase {
 		self::assertSame('alice', $completed->getCompletedBy());
 	}
 
+	/**
+	 * A required step in a section whose condition evaluated to false is not
+	 * actionable. The detail view already treats it as resolved; completing
+	 * the run and the run list must agree with it.
+	 */
+	public function testCompleteRunIgnoresRequiredStepsInInapplicableSection(): void {
+		$this->addUser('alice');
+		$run = $this->addRun('alice');
+		$control = $this->addRunSection($run->getId(), 0);
+		$gate = $this->addRunStep($control->getId(), 'CHECK', true, RunStepStatus::Completed->value, 0);
+		$gate->setResponseValue(false);
+		$gate->setCompletedAt($this->now);
+		$conditional = $this->addRunSection($run->getId(), 1);
+		$conditional->setConditions([['stepId' => $gate->getId(), 'operator' => 'is_true']]);
+		$this->addRunStep($conditional->getId(), 'TEXT', true, RunStepStatus::Pending->value, 0);
+
+		$service = $this->runServiceFor('alice');
+		$detail = $service->getRunDetail($run->getId());
+		self::assertTrue($detail['progress']['canComplete']);
+
+		$listed = $service->listRuns();
+		self::assertCount(1, $listed);
+		self::assertSame($detail['progress'], $listed[0]['progress']);
+
+		$completed = $service->completeRun($run->getId());
+		self::assertSame(RunStatus::Completed->value, $completed->getStatus());
+	}
+
+	public function testCompleteRunStillRequiresStepsInApplicableSection(): void {
+		$this->addUser('alice');
+		$run = $this->addRun('alice');
+		$control = $this->addRunSection($run->getId(), 0);
+		$gate = $this->addRunStep($control->getId(), 'CHECK', true, RunStepStatus::Completed->value, 0);
+		$gate->setResponseValue(true);
+		$gate->setCompletedAt($this->now);
+		$conditional = $this->addRunSection($run->getId(), 1);
+		$conditional->setConditions([['stepId' => $gate->getId(), 'operator' => 'is_true']]);
+		$this->addRunStep($conditional->getId(), 'TEXT', true, RunStepStatus::Pending->value, 0);
+
+		$this->expectException(ConflictException::class);
+		$this->runServiceFor('alice')->completeRun($run->getId());
+	}
+
 	public function testCancelRun(): void {
 		$this->addUser('alice');
 		$run = $this->addRun('alice');

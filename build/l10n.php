@@ -13,6 +13,9 @@
  *  - regenerates `l10n/<locale>.js` (the file Nextcloud actually loads at
  *    runtime) from the JSON source.
  *
+ * Plural entries use the Nextcloud gettext convention: the key is
+ * `_<singular>_::_<plural>_` and the value is a list of plural forms.
+ *
  * Run it whenever translation keys change: `composer l10n:generate`.
  */
 
@@ -44,7 +47,7 @@ foreach ($files as $jsonPath) {
 	$translations = [];
 	if (isset($data['translations']) && is_array($data['translations'])) {
 		foreach ($data['translations'] as $key => $value) {
-			if (is_string($value)) {
+			if (is_string($value) || isPluralForms($value)) {
 				$translations[(string)$key] = $value;
 			}
 		}
@@ -77,7 +80,23 @@ foreach ($files as $jsonPath) {
 exit($exitCode);
 
 /**
- * @param array<string, string> $translations
+ * @psalm-assert-if-true list<string> $value
+ */
+function isPluralForms(mixed $value): bool {
+	if (!is_array($value) || $value === [] || !array_is_list($value)) {
+		return false;
+	}
+	foreach ($value as $form) {
+		if (!is_string($form)) {
+			return false;
+		}
+	}
+
+	return true;
+}
+
+/**
+ * @param array<string, string|list<string>> $translations
  */
 function writeJson(string $path, array $translations, string $pluralForm, int $flags): void {
 	$lines = ['{', '  "translations": {'];
@@ -94,7 +113,7 @@ function writeJson(string $path, array $translations, string $pluralForm, int $f
 }
 
 /**
- * @param array<string, string> $translations
+ * @param array<string, string|list<string>> $translations
  */
 function writeJs(string $path, string $appId, array $translations, string $pluralForm, int $flags): void {
 	$lines = ['OC.L10N.register(', '    ' . json_encode($appId, $flags) . ',', '    {'];

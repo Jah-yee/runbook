@@ -292,14 +292,21 @@ class TemplateService {
 	 * Duplicate a template into a new independent draft owned by the current
 	 * user.
 	 *
-	 * Only the template owner or a Nextcloud administrator may duplicate.
-	 * Sections, steps and their configuration are copied. Runs, activity,
-	 * comments, evidence and the source ACL are intentionally never copied.
+	 * Only the template owner or a Nextcloud administrator may duplicate, and
+	 * only when the template creation policy allows the current user to create
+	 * templates. Sections, steps, their configuration and the section flow
+	 * rules (dependencies and conditions, remapped to the copied ids) are
+	 * copied. Runs, activity, comments, evidence and the source ACL are
+	 * intentionally never copied.
 	 */
 	public function duplicateTemplate(int $id): Template {
 		$source = $this->requireOwnerOrAdminTemplate($id);
 
 		$uid = $this->currentUserId();
+		if (!$this->creationPolicy->canCreate($uid)) {
+			throw new ForbiddenException('template_creation_forbidden');
+		}
+
 		$now = $this->timeFactory->getTime();
 		$copy = new Template();
 		$copy->setUuid($this->generateUuid());
@@ -312,6 +319,13 @@ class TemplateService {
 		$copy->setUpdatedAt($now);
 		$copy = $this->templates->insert($copy);
 
+		/** @var array<int, int> $sectionIdMap source section id => copied section id */
+		$sectionIdMap = [];
+		/** @var array<int, int> $stepIdMap source step id => copied step id */
+		$stepIdMap = [];
+		/** @var list<array{0: TemplateSection, 1: TemplateSection}> $copiedSections */
+		$copiedSections = [];
+
 		foreach ($this->sections->findByTemplate($source->getId()) as $sourceSection) {
 			$section = new TemplateSection();
 			$section->setTemplateId($copy->getId());
@@ -320,6 +334,8 @@ class TemplateService {
 			$section->setNotes($sourceSection->getNotes());
 			$section->setPosition($sourceSection->getPosition());
 			$section = $this->sections->insert($section);
+			$sectionIdMap[$sourceSection->getId()] = $section->getId();
+			$copiedSections[] = [$sourceSection, $section];
 
 			foreach ($this->steps->findBySection($sourceSection->getId()) as $sourceStep) {
 				$step = new TemplateStep();
@@ -333,8 +349,36 @@ class TemplateService {
 				$step->setConfigArray($sourceStep->getConfigArray());
 				$step->setDefaultAssignee($sourceStep->getDefaultAssignee());
 				$step->setDueOffset($sourceStep->getDueOffset());
-				$this->steps->insert($step);
+				$step = $this->steps->insert($step);
+				$stepIdMap[$sourceStep->getId()] = $step->getId();
 			}
+		}
+
+		// Second pass: flow rules reference section and step ids that only
+		// exist for the copy after the first pass.
+		foreach ($copiedSections as [$sourceSection, $section]) {
+			$dependsOn = [];
+			foreach ($sourceSection->getDependsOnIds() as $dependencyId) {
+				if (isset($sectionIdMap[$dependencyId])) {
+					$dependsOn[] = $sectionIdMap[$dependencyId];
+				}
+			}
+
+			$conditions = [];
+			foreach ($sourceSection->getConditions() as $condition) {
+				$sourceStepId = (int)($condition['stepId'] ?? 0);
+				if (isset($stepIdMap[$sourceStepId])) {
+					$condition['stepId'] = $stepIdMap[$sourceStepId];
+					$conditions[] = $condition;
+				}
+			}
+
+			if ($dependsOn === [] && $conditions === []) {
+				continue;
+			}
+			$section->setDependsOnIds($dependsOn);
+			$section->setConditions($conditions);
+			$this->sections->update($section);
 		}
 
 		return $copy;

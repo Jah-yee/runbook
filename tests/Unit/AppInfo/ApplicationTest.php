@@ -14,7 +14,6 @@ use OCA\Runbook\Notification\Notifier;
 use OCA\Runbook\Search\Provider;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
-use OCP\BackgroundJob\IJobList;
 use PHPUnit\Framework\TestCase;
 
 class ApplicationTest extends TestCase {
@@ -35,22 +34,29 @@ class ApplicationTest extends TestCase {
 		$this->application()->register($context);
 	}
 
-	public function testBootRegistersBackgroundJobs(): void {
-		$registered = [];
-		$jobList = $this->createMock(IJobList::class);
-		$jobList->method('add')->willReturnCallback(function (string $job) use (&$registered): void {
-			$registered[] = $job;
-		});
-
+	public function testBootDoesNotTouchTheJobList(): void {
 		$context = $this->createMock(IBootContext::class);
-		$context->method('injectFn')->willReturnCallback(
-			static fn (callable $callback): mixed => $callback($jobList),
-		);
+		$context->expects(self::never())->method('injectFn');
 
 		$this->application()->boot($context);
+	}
 
-		self::assertContains(DueStepNotificationJob::class, $registered);
-		self::assertContains(FilesCleanupRetryJob::class, $registered);
-		self::assertContains(LegacyMigrationJob::class, $registered);
+	public function testBackgroundJobsAreDeclaredInInfoXml(): void {
+		$info = simplexml_load_file(dirname(__DIR__, 3) . '/appinfo/info.xml');
+		self::assertNotFalse($info);
+
+		$jobs = [];
+		foreach ($info->{'background-jobs'}->job ?? [] as $job) {
+			$jobs[] = (string)$job;
+		}
+
+		self::assertSame([
+			DueStepNotificationJob::class,
+			FilesCleanupRetryJob::class,
+			LegacyMigrationJob::class,
+		], $jobs);
+		foreach ($jobs as $job) {
+			self::assertTrue(class_exists($job), $job . ' must exist');
+		}
 	}
 }

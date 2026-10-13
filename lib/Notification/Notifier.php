@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace OCA\Runbook\Notification;
 
+use OCA\Runbook\Db\RunMapper;
 use OCA\Runbook\Service\NotificationService;
+use OCA\Runbook\Service\RunAccessService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\L10N\IFactory;
+use OCP\Notification\AlreadyProcessedException;
 use OCP\Notification\INotification;
 use OCP\Notification\INotifier;
 use OCP\Notification\UnknownNotificationException;
@@ -18,12 +22,26 @@ use OCP\Notification\UnknownNotificationException;
  * The stored subject is a stable machine identifier; all user facing text is
  * produced here using the recipient's language. No comment bodies, storage keys
  * or other private data are ever part of a notification payload.
+ *
+ * A notification is withdrawn (AlreadyProcessedException, which makes
+ * Nextcloud delete it) when its run no longer exists or the recipient can no
+ * longer view it, so deleted or revoked runs never keep showing their titles.
  */
 class Notifier implements INotifier {
+	private const SUBJECTS = [
+		NotificationService::SUBJECT_STEP_ASSIGNED,
+		NotificationService::SUBJECT_RUN_ASSIGNED,
+		NotificationService::SUBJECT_MENTIONED,
+		NotificationService::SUBJECT_STEP_DUE,
+		NotificationService::SUBJECT_STEP_OVERDUE,
+	];
+
 	public function __construct(
 		private readonly IFactory $l10nFactory,
 		private readonly IURLGenerator $url,
 		private readonly IUserManager $userManager,
+		private readonly RunMapper $runs,
+		private readonly RunAccessService $access,
 	) {
 	}
 
@@ -48,6 +66,11 @@ class Notifier implements INotifier {
 		$runTitle = $this->stringParam($params, 'runTitle');
 		$stepTitle = $this->stringParam($params, 'stepTitle');
 		$actor = $this->stringParam($params, 'actor');
+
+		if (!in_array($notification->getSubject(), self::SUBJECTS, true)) {
+			throw new UnknownNotificationException();
+		}
+		$this->assertStillVisible($runId, $notification->getUser());
 
 		switch ($notification->getSubject()) {
 			case NotificationService::SUBJECT_STEP_ASSIGNED:
@@ -122,6 +145,25 @@ class Notifier implements INotifier {
 		$notification->setLink($this->link($runId, $stepId));
 
 		return $notification;
+	}
+
+	/**
+	 * @throws AlreadyProcessedException when the run is gone or not visible.
+	 */
+	private function assertStillVisible(int $runId, string $uid): void {
+		if ($runId <= 0 || $uid === '') {
+			throw new AlreadyProcessedException();
+		}
+
+		try {
+			$run = $this->runs->find($runId);
+		} catch (DoesNotExistException) {
+			throw new AlreadyProcessedException();
+		}
+
+		if (!$this->access->canView($run, $uid)) {
+			throw new AlreadyProcessedException();
+		}
 	}
 
 	private function link(int $runId, int $stepId): string {

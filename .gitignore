@@ -8,6 +8,9 @@
 /js/
 /css/
 
+# Release signature: created at release time from the packaged files
+/appinfo/signature.json
+
 # Tooling caches
 /.phpunit.cache/
 /.php-cs-fixer.cache

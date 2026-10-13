@@ -20,6 +20,7 @@ import { searchPrincipals } from '../services/templates.ts'
 import { apiErrorMessage } from '../utils/apiError.ts'
 import { copyEvidenceHint, normalizeSourcePath } from '../utils/copyEvidence.ts'
 import { canCompleteStep, canRemoveEvidence, evidenceStateText, missingRequiredFileEvidence, usableEvidenceCount } from '../utils/runEvidence.ts'
+import { stepStateKey } from '../utils/runRefresh.ts'
 
 const props = defineProps<{
 	step: RunStep
@@ -239,7 +240,9 @@ function reset(): void {
 	assigneeDueDate.value = props.step.dueAt !== null ? new Date(props.step.dueAt * 1000).toISOString().slice(0, 10) : ''
 }
 
-watch(() => props.step, reset, { deep: true })
+// A reload replaces every step object; only reset the local draft when this
+// step changed on the server, so input in other steps survives a refresh.
+watch(() => stepStateKey(props.step), reset)
 
 reset()
 

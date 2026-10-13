@@ -13,8 +13,13 @@ declare(strict_types=1);
 /**
  * @return list<string>
  */
-function placeholders(string $value): array {
-	preg_match_all('/\{[a-zA-Z0-9_]+\}/', $value, $matches);
+/**
+ * @param string|list<string> $value A message or the plural forms of one.
+ * @return list<string>
+ */
+function placeholders(string|array $value): array {
+	$text = is_array($value) ? implode("\n", $value) : $value;
+	preg_match_all('/\{[a-zA-Z0-9_]+\}|%n/', $text, $matches);
 	$placeholders = $matches[0];
 	sort($placeholders);
 
@@ -65,8 +70,19 @@ foreach ($jsonFiles as $file) {
 		);
 	}
 
-	/** @var array<string, string> $translations */
+	/** @var array<string, string|list<string>> $translations */
 	$translations = $decoded['translations'];
+	foreach ($translations as $key => $value) {
+		$valid = is_string($value);
+		if (is_array($value)) {
+			$valid = $value !== [] && array_is_list($value)
+				&& count(array_filter($value, 'is_string')) === count($value)
+				&& preg_match('/^_.+_::_.+_$/s', (string)$key) === 1;
+		}
+		if (!$valid) {
+			$errors[] = sprintf('%s has an invalid value for: %s', basename($file), $key);
+		}
+	}
 
 	// The generated .js is what Nextcloud loads at runtime and must mirror the
 	// JSON source exactly.
@@ -89,13 +105,13 @@ foreach ($jsonFiles as $file) {
 
 $enPath = $root . '/l10n/en.json';
 if (is_file($enPath)) {
-	/** @var array{translations: array<string, string>} $en */
+	/** @var array{translations: array<string, string|list<string>>} $en */
 	$en = json_decode((string)file_get_contents($enPath), true, 512, JSON_THROW_ON_ERROR);
 	foreach ($jsonFiles as $file) {
 		if (basename($file) === 'en.json') {
 			continue;
 		}
-		/** @var array{translations: array<string, string>} $translated */
+		/** @var array{translations: array<string, string|list<string>>} $translated */
 		$translated = json_decode((string)file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
 		$name = basename($file);
 		foreach ($en['translations'] as $key => $value) {
@@ -124,7 +140,7 @@ if (is_file($ptPtPath) && is_file($ptBrPath)) {
 		$ptPtTranslations = [];
 		if (is_array($ptPt) && isset($ptPt['translations']) && is_array($ptPt['translations'])) {
 			foreach ($ptPt['translations'] as $key => $value) {
-				if (is_string($value)) {
+				if (is_string($value) || is_array($value)) {
 					$ptPtTranslations[(string)$key] = $value;
 				}
 			}
@@ -132,7 +148,7 @@ if (is_file($ptPtPath) && is_file($ptBrPath)) {
 		$ptBrTranslations = [];
 		if (is_array($ptBr) && isset($ptBr['translations']) && is_array($ptBr['translations'])) {
 			foreach ($ptBr['translations'] as $key => $value) {
-				if (is_string($value)) {
+				if (is_string($value) || is_array($value)) {
 					$ptBrTranslations[(string)$key] = $value;
 				}
 			}

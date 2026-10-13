@@ -366,28 +366,4 @@ class AclServiceTest extends TestCase {
 		self::assertCount(1, $this->aclEntries);
 		self::assertArrayHasKey($existing->getId(), $this->aclEntries);
 	}
-
-	public function testSearchPrincipalsReturnsUsersAndGroups(): void {
-		$this->addUser('bob', 'Bob');
-		$this->addGroup('engineering', 'Engineering');
-		$service = $this->serviceFor('alice');
-
-		$users = $service->searchPrincipals('Bob', 25);
-		self::assertCount(1, $users);
-		self::assertSame('USER', $users[0]['principalType']);
-		self::assertSame('bob', $users[0]['principalId']);
-		self::assertSame('Bob', $users[0]['displayName']);
-
-		$groups = $service->searchPrincipals('Eng', 25);
-		self::assertCount(1, $groups);
-		self::assertSame('GROUP', $groups[0]['principalType']);
-		self::assertSame('engineering', $groups[0]['principalId']);
-		self::assertSame('Engineering', $groups[0]['displayName']);
-	}
-
-	public function testSearchPrincipalsReturnsEmptyListForEmptySearch(): void {
-		$this->addUser('bob', 'Bob');
-
-		self::assertSame([], $this->serviceFor('alice')->searchPrincipals('   ', 25));
-	}
 }

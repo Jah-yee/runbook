@@ -14,7 +14,7 @@ template import/export** work (issues #26–#33), and the **0.5.0 Nextcloud File
 integration** (issues #45–#56).
 
 > The numbered **"Milestone N"** labels used below are feature milestones and are
-> **not** the release version. The application version is **1.0.0**
+> **not** the release version. The application version is **1.0.1**
 > (`appinfo/info.xml`, `package.json`) as a public source release prepared for
 > collaboration and future App Store submission. It is not yet a claim of
 > Nextcloud App Store approval or real-instance acceptance. The release gates and
@@ -48,7 +48,8 @@ Milestone 2 — Access control:
 - Four ACL roles: `VIEWER`, `EXECUTOR`, `EDITOR`, `OWNER`.
 - Effective permission resolution with strongest-role wins.
 - ACL editor in the template editor (owner only).
-- Principal search for users and groups.
+- Principal search for users and groups, following the instance's sharing and
+  user enumeration settings (administrators search all accounts).
 - ACL-controlled visibility for the template list and details.
 
 Milestone 3 — Runs and execution:
@@ -1298,11 +1299,11 @@ Translation workflow:
 - `lib/Db/*` — entities and mappers.
 - `lib/Middleware/ExceptionMiddleware.php` — maps domain exceptions to JSON.
 
-Notifications, the Dashboard widget, the Unified Search provider and the
-background job are registered through the public Nextcloud bootstrap
-registration API in `Application::register()` / `Application::boot()`. The
-administration settings are registered through `appinfo/info.xml` with the
-public Nextcloud Settings API.
+Notifications, the Dashboard widget and the Unified Search provider are
+registered through the public Nextcloud bootstrap registration API in
+`Application::register()`. The background jobs and the administration settings
+are declared in `appinfo/info.xml`; Nextcloud registers the jobs on install and
+upgrade.
 
 Milestone 7 does not add a database migration; all settings are stored through
 the typed Nextcloud app configuration API.
@@ -1787,7 +1788,7 @@ typed number comparison):
 
 ## Release
 
-- **Version:** 1.0.0 public source release (`appinfo/info.xml`, `package.json`).
+- **Version:** 1.0.1 (`appinfo/info.xml`, `package.json`).
 - **Nextcloud:** 33–35.
 - **PHP:** 8.2 – 8.5.
 - **Databases:** MySQL/MariaDB, PostgreSQL and SQLite.
@@ -1886,12 +1887,33 @@ php build/create-package.php
 
 `build/create-package.php` reads the version from `appinfo/info.xml`, writes a
 staging tree with runtime files only and creates `runbook-<version>.tar.gz`
-(archive root `runbook/`) — for example `runbook-1.0.0.tar.gz` for the current
-public source release. Before archiving it validates the staging tree with
+(archive root `runbook/`) — for example `runbook-1.0.1.tar.gz` for the current
+release. Before archiving it validates the staging tree with
 `build/validate-package.php --package=<staging-directory>`, which also checks
 that every relative link in the packaged `README.md` resolves inside the tree
 (and does not escape it through `..` or an absolute path), including the `docs/`
 files shipped with it.
+
+### Signing a release
+
+`appinfo/signature.json` is not tracked in git: a signature only matches the
+exact files it was created from, including the built frontend assets. Sign the
+extracted release package, not the working tree:
+
+```bash
+tar xzf runbook-<version>.tar.gz              # creates ./runbook/
+occ integrity:sign-app \
+  --path="$PWD/runbook" \
+  --privateKey=/secure/path/runbook.key \
+  --certificate=/secure/path/runbook.crt
+tar czf runbook-<version>.tar.gz runbook      # signed package
+```
+
+Verify on a test instance with `occ integrity:check-app runbook` before
+publishing. Every build that is installed somewhere must carry a new version in
+`appinfo/info.xml`: Nextcloud derives the asset cache-buster from the app
+version, so reusing a version can serve stale CSS or JavaScript from browser or
+proxy caches.
 
 `composer package:check` runs `build/validate-package.php` in **repository
 mode**: it validates release *readiness* (required files, generated assets,

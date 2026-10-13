@@ -1020,6 +1020,60 @@ class TemplateServiceTest extends TestCase {
 		self::assertTrue($this->permissionService->canView($this->templates[$copy->getId()], 'alice'));
 	}
 
+	public function testDuplicateEnforcesCreationPolicy(): void {
+		$alice = $this->serviceFor('alice');
+		$template = $alice->createTemplate(['title' => 'Deploy']);
+		$this->configValues[AdminSettings::KEY_TEMPLATE_CREATION_POLICY] = 'admins';
+		$before = count($this->templates);
+
+		try {
+			$alice->duplicateTemplate($template->getId());
+			self::fail('creation policy must reject the duplicate');
+		} catch (ForbiddenException $exception) {
+			self::assertSame('template_creation_forbidden', $exception->getReason());
+		}
+
+		self::assertCount($before, $this->templates);
+	}
+
+	public function testDuplicateCopiesFlowRulesWithRemappedIds(): void {
+		$service = $this->serviceFor('alice');
+		$template = $service->createTemplate(['title' => 'Deploy']);
+		$start = $service->createSection($template->getId(), ['title' => 'Start']);
+		$approved = $service->createStep($start->getId(), ['title' => 'Approved?', 'type' => 'CONFIRMATION', 'required' => true]);
+		$gated = $service->createSection($template->getId(), [
+			'title' => 'Rollout',
+			'dependsOn' => [$start->getId()],
+			'condition' => ['stepId' => $approved->getId(), 'operator' => 'is_true'],
+		]);
+		self::assertNotSame([], $gated->getConditions());
+
+		$copy = $service->duplicateTemplate($template->getId());
+
+		$copiedSections = array_values(array_filter(
+			$this->sections,
+			static fn (TemplateSection $section): bool => $section->getTemplateId() === $copy->getId(),
+		));
+		usort($copiedSections, static fn (TemplateSection $a, TemplateSection $b): int => $a->getPosition() <=> $b->getPosition());
+		self::assertCount(2, $copiedSections);
+		[$copiedStart, $copiedGated] = $copiedSections;
+
+		$copiedSteps = array_values(array_filter(
+			$this->steps,
+			static fn (TemplateStep $step): bool => $step->getSectionId() === $copiedStart->getId(),
+		));
+		self::assertCount(1, $copiedSteps);
+
+		self::assertSame([$copiedStart->getId()], $copiedGated->getDependsOnIds());
+		$conditions = $copiedGated->getConditions();
+		self::assertCount(1, $conditions);
+		self::assertSame($copiedSteps[0]->getId(), $conditions[0]['stepId']);
+		self::assertSame('is_true', $conditions[0]['operator']);
+
+		// The source keeps pointing at its own ids.
+		self::assertSame([$start->getId()], $this->sections[$gated->getId()]->getDependsOnIds());
+	}
+
 	public function testSectionDependenciesArePersisted(): void {
 		$service = $this->serviceFor('alice');
 		$template = $service->createTemplate(['title' => 'Deploy']);

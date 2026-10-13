@@ -80,6 +80,10 @@ class LocalizationParityTest extends TestCase {
 	private const PORTUGUESE_CATALOGS = ['pt_PT', 'pt_BR'];
 
 	/**
+	 * Catalog values as strings. Plural entries (gettext `_<singular>_::_<plural>_`
+	 * keys with a list of forms) are validated and joined with newlines so the
+	 * string checks below cover every form.
+	 *
 	 * @return array<string, string>
 	 */
 	private function translations(string $file): array {
@@ -93,6 +97,15 @@ class LocalizationParityTest extends TestCase {
 
 		$translations = [];
 		foreach ($decoded['translations'] as $key => $value) {
+			if (is_array($value)) {
+				self::assertMatchesRegularExpression('/^_.+_::_.+_$/s', (string)$key, 'plural forms need a plural key: ' . $key);
+				self::assertTrue(array_is_list($value) && count($value) >= 2, 'plural entry needs at least two forms: ' . $key);
+				foreach ($value as $form) {
+					self::assertIsString($form);
+					self::assertStringContainsString('%n', $form, 'plural form must contain %n: ' . $key);
+				}
+				$value = implode("\n", $value);
+			}
 			self::assertIsString($value);
 			$translations[(string)$key] = $value;
 		}

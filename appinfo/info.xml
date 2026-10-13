@@ -40,31 +40,36 @@ Runbook allows teams to:
 Runbook does not modify Nextcloud users, groups or global permissions. Nextcloud identities are only referenced for authentication, assignment and access control.
 
 Runbook is designed to be useful for IT, operations, HR, finance, quality, security, customer service, facilities and any other team that relies on repeatable procedures.]]></description>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <licence>AGPL-3.0-or-later</licence>
     <author mail="webmaster@more-it.co.mz" homepage="https://github.com/More-IT">More-IT</author>
     <namespace>Runbook</namespace>
     <category>tools</category>
     <bugs>https://github.com/More-IT/runbook/issues</bugs>
     <dependencies>
-        <nextcloud min-version="33" max-version="35"/>
         <php min-version="8.2" max-version="8.5"/>
         <database>mysql</database>
         <database>pgsql</database>
         <database>sqlite</database>
+        <nextcloud min-version="33" max-version="35"/>
     </dependencies>
+    <background-jobs>
+        <job>OCA\Runbook\BackgroundJob\DueStepNotificationJob</job>
+        <job>OCA\Runbook\BackgroundJob\FilesCleanupRetryJob</job>
+        <job>OCA\Runbook\BackgroundJob\LegacyMigrationJob</job>
+    </background-jobs>
+    <settings>
+        <admin>OCA\Runbook\Settings\Admin</admin>
+        <admin-section>OCA\Runbook\Settings\Section</admin-section>
+    </settings>
     <navigations>
         <navigation>
             <id>runbook</id>
             <name>Runbook</name>
             <route>runbook.page.index</route>
             <icon>app.svg</icon>
-            <type>link</type>
             <order>100</order>
+            <type>link</type>
         </navigation>
     </navigations>
-    <settings>
-        <admin>OCA\Runbook\Settings\Admin</admin>
-        <admin-section>OCA\Runbook\Settings\Section</admin-section>
-    </settings>
 </info>

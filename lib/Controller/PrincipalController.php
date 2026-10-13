@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace OCA\Runbook\Controller;
 
-use OCA\Runbook\Service\AclService;
+use OCA\Runbook\Service\PrincipalSearchService;
 use OCA\Runbook\Service\ValidationException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\Attribute\FrontpageRoute;
@@ -22,13 +22,15 @@ class PrincipalController extends ApiController {
 	public function __construct(
 		string $appName,
 		IRequest $request,
-		private readonly AclService $aclService,
+		private readonly PrincipalSearchService $principalSearch,
 	) {
 		parent::__construct($appName, $request);
 	}
 
 	/**
 	 * Search users and groups available to the ACL editor.
+	 *
+	 * Results follow the instance's sharing and user enumeration settings.
 	 *
 	 * @param string $search Search term.
 	 * @param int $limit Maximum number of results.
@@ -51,7 +53,7 @@ class PrincipalController extends ApiController {
 		}
 
 		return new JSONResponse([
-			'principals' => $this->aclService->searchPrincipals($search, $limit),
+			'principals' => $this->principalSearch->search($search, $limit),
 		]);
 	}
 }
